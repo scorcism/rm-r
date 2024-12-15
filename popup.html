@@ -1,86 +1,213 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Event Reminder</title>
+    <title>rm-r</title>
     <style>
+      :root {
+        --primary: #2563eb;
+        --primary-dark: #1d4ed8;
+        --background: #f8fafc;
+        --card: #ffffff;
+        --text: #1e293b;
+        --text-light: #64748b;
+        --border: #e2e8f0;
+        --warning: #f59e0b;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
       body {
-        width: 400px;
+        width: 380px;
+        min-height: 500px;
+        padding: 16px;
+        font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        background: var(--background);
+        color: var(--text);
+      }
+
+      .permission-banner {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        background: var(--warning);
+        color: white;
+        padding: 12px 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        z-index: 1000;
+      }
+
+      .permission-banner button {
+        background: white;
+        color: var(--warning);
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 500;
+        margin: 0;
+        width: auto;
+      }
+
+      .container {
+        background: var(--card);
+        border-radius: 12px;
         padding: 20px;
-        font-family: Arial, sans-serif;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin-top: 44px;
       }
+
       .form-group {
-        margin-bottom: 15px;
+        margin-bottom: 16px;
       }
+
       label {
         display: block;
-        margin-bottom: 5px;
+        font-size: 0.875rem;
+        color: var(--text-light);
+        margin-bottom: 8px;
       }
+
       input[type="text"],
       input[type="datetime-local"],
       textarea {
         width: 100%;
-        padding: 8px;
-        margin-bottom: 10px;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-size: 14px;
+        transition: all 0.2s;
       }
-      .notification-options {
-        margin-top: 10px;
+
+      input:focus,
+      textarea:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
       }
+
+      .notification-card {
+        background: var(--background);
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 16px;
+      }
+
+      .notification-card h3 {
+        font-size: 14px;
+        color: var(--text-light);
+        margin-bottom: 12px;
+      }
+
+      .checkbox-group {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+      }
+
+      .checkbox-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
       button {
         width: 100%;
-        padding: 10px;
-        background-color: #4caf50;
+        padding: 12px;
+        background: var(--primary);
         color: white;
         border: none;
-        border-radius: 4px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
         cursor: pointer;
+        transition: all 0.2s;
+        margin-top: 24px;
       }
+
       button:hover {
-        background-color: #45a049;
+        background: var(--primary-dark);
+      }
+
+      #eventsList {
+        margin-top: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .event-card {
+        background: var(--card);
+        border-radius: 8px;
+        padding: 16px;
+        border: 1px solid var(--border);
       }
     </style>
   </head>
   <body>
-    <div class="form-group">
-      <label for="title">Title:</label>
-      <input type="text" id="title" required />
+    <div id="permissionBanner" class="permission-banner" style="display: none">
+      <span>🔔 Notifications are required for reminders</span>
+      <button id="enableNotifications">Enable Notifications</button>
     </div>
 
-    <div class="form-group">
-      <label for="description">Description:</label>
-      <textarea id="description" rows="3"></textarea>
+    <div class="container">
+      <h1>Create New Event</h1>
+      <form id="eventForm">
+        <div class="form-group">
+          <label for="title">Title*</label>
+          <input
+            type="text"
+            id="title"
+            placeholder="Enter event title"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="description">Description</label>
+          <textarea id="description" placeholder="Add event details"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="eventTime">Date & Time*</label>
+          <input type="datetime-local" id="eventTime" required />
+        </div>
+
+        <div class="notification-card">
+          <h3>Notification Times</h3>
+          <div class="checkbox-group">
+            <label class="checkbox-wrapper">
+              <input type="checkbox" id="notify30" checked />
+              <span>30 minutes before</span>
+            </label>
+            <label class="checkbox-wrapper">
+              <input type="checkbox" id="notify10" checked />
+              <span>10 minutes before</span>
+            </label>
+            <label class="checkbox-wrapper">
+              <input type="checkbox" id="notify5" checked />
+              <span>5 minutes before</span>
+            </label>
+            <label class="checkbox-wrapper">
+              <input type="checkbox" id="notifyAt" checked disabled />
+              <span>At event time</span>
+            </label>
+          </div>
+        </div>
+
+        <button type="submit" id="saveEvent">Add Event</button>
+      </form>
     </div>
 
-    <div class="form-group">
-      <label for="eventTime">Event Time:</label>
-      <input type="datetime-local" id="eventTime" required />
-    </div>
-
-    <div class="form-group">
-      <label>
-        <input type="checkbox" id="completed" />
-        Mark as completed
-      </label>
-    </div>
-
-    <div class="form-group notification-options">
-      <label>Notification preferences:</label>
-      <div>
-        <input type="checkbox" id="notify30" value="30" />
-        <label for="notify30">30 minutes before</label>
-      </div>
-      <div>
-        <input type="checkbox" id="notify10" value="10" />
-        <label for="notify10">10 minutes before</label>
-      </div>
-      <div>
-        <input type="checkbox" id="notify5" value="5" />
-        <label for="notify5">5 minutes before</label>
-      </div>
-    </div>
-
-    <button id="saveEvent">Save Event</button>
-
-    <div id="eventsList" style="margin-top: 20px"></div>
+    <div id="eventsList"></div>
 
     <script src="popup.js"></script>
   </body>
