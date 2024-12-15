@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Event Reminder",
+  "version": "1.0",
+  "description": "Set events with customizable notifications",
+  "permissions": ["storage", "notifications", "alarms"],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}
