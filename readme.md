@@ -1,4 +1,4 @@
-# Event Reminder Extension
+# rm-r : Schedule Notifications 😄
 
 ## Installation
 
