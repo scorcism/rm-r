@@ -3,94 +3,92 @@ let hasNotificationPermission = false;
 
 function log(message, data = null) {
   if (DEBUG) {
-    console.log(`[${new Date().toISOString()}] ${message}`, data || '');
+    console.log(`[${new Date().toISOString()}] ${message}`, data || "");
   }
 }
 
-// Initialize the popup
-document.addEventListener('DOMContentLoaded', async function() {
-  log('Popup opened');
+document.addEventListener("DOMContentLoaded", async function () {
+  log("Popup opened");
   await checkNotificationPermission();
-  
-  document.getElementById('enableNotifications').addEventListener('click', requestNotificationPermission);
-  document.getElementById('eventForm').addEventListener('submit', handleFormSubmit);
-  
+
+  document
+    .getElementById("enableNotifications")
+    .addEventListener("click", requestNotificationPermission);
+  document
+    .getElementById("eventForm")
+    .addEventListener("submit", handleFormSubmit);
+
   loadEvents();
 });
 
-// Check notification permission
 async function checkNotificationPermission() {
   try {
     const permission = await chrome.notifications.getPermissionLevel();
-    hasNotificationPermission = permission === 'granted';
+    hasNotificationPermission = permission === "granted";
     updateUI();
     return hasNotificationPermission;
   } catch (error) {
-    log('Error checking permission', error);
+    log("Error checking permission", error);
     return false;
   }
 }
 
-// Update UI based on permission status
 function updateUI() {
-  const banner = document.getElementById('permissionBanner');
-  const form = document.getElementById('eventForm');
-  
+  const banner = document.getElementById("permissionBanner");
+  const form = document.getElementById("eventForm");
+
   if (!hasNotificationPermission) {
-    banner.style.display = 'flex';
-    form.style.opacity = '0.5';
-    form.style.pointerEvents = 'none';
+    banner.style.display = "flex";
+    form.style.opacity = "0.5";
+    form.style.pointerEvents = "none";
   } else {
-    banner.style.display = 'none';
-    form.style.opacity = '1';
-    form.style.pointerEvents = 'auto';
+    banner.style.display = "none";
+    form.style.opacity = "1";
+    form.style.pointerEvents = "auto";
   }
 }
 
-// Request notification permission
 async function requestNotificationPermission() {
   try {
-    await chrome.notifications.create('test', {
-      type: 'basic',
-      iconUrl: '/icons/icon48.png',
-      title: 'Notification Test',
-      message: 'Notifications are now enabled!'
+    await chrome.notifications.create("test", {
+      type: "basic",
+      iconUrl: "/icons/icon48.png",
+      title: "Notification Test",
+      message: "Notifications are now enabled!",
     });
-    
+
     const granted = await checkNotificationPermission();
     if (granted) {
-      log('Permission granted');
+      log("Permission granted");
     } else {
-      log('Permission denied');
+      log("Permission denied");
     }
   } catch (error) {
-    log('Error requesting permission', error);
+    log("Error requesting permission", error);
   }
 }
 
-// Handle form submission
 async function handleFormSubmit(e) {
   e.preventDefault();
-  
+
   if (!hasNotificationPermission) {
-    alert('Please enable notifications first');
+    alert("Please enable notifications first");
     return;
   }
-  
+
   saveEvent();
 }
 
-// Save new event
 function saveEvent() {
-  const title = document.getElementById('title').value.trim();
-  const description = document.getElementById('description').value.trim();
-  const eventTime = document.getElementById('eventTime').value;
-  const notify30 = document.getElementById('notify30').checked;
-  const notify10 = document.getElementById('notify10').checked;
-  const notify5 = document.getElementById('notify5').checked;
+  const title = document.getElementById("title").value.trim();
+  const description = document.getElementById("description").value.trim();
+  const eventTime = document.getElementById("eventTime").value;
+  const notify30 = document.getElementById("notify30").checked;
+  const notify10 = document.getElementById("notify10").checked;
+  const notify5 = document.getElementById("notify5").checked;
 
   if (!title || !eventTime) {
-    alert('Please fill in all required fields');
+    alert("Please fill in all required fields");
     return;
   }
 
@@ -104,32 +102,29 @@ function saveEvent() {
       thirty: notify30,
       ten: notify10,
       five: notify5,
-      atTime: true
-    }
+      atTime: true,
+    },
   };
 
-  chrome.storage.local.get(['events'], function(result) {
+  chrome.storage.local.get(["events"], function (result) {
     const events = result.events || [];
     events.push(event);
-    
-    chrome.storage.local.set({ events }, function() {
+
+    chrome.storage.local.set({ events }, function () {
       setEventAlarms(event);
       loadEvents();
-      document.getElementById('eventForm').reset();
+      document.getElementById("eventForm").reset();
     });
   });
 }
 
-// Set alarms for notifications
 function setEventAlarms(event) {
   if (event.completed) return;
 
   const eventTime = event.eventTime;
-  
-  // Always set alarm for event time
+
   createAlarm(`${event.id}_0`, eventTime);
 
-  // Set alarms for selected notification times
   if (event.notifications.thirty) {
     createAlarm(`${event.id}_30`, eventTime - 30 * 60 * 1000);
   }
@@ -141,68 +136,131 @@ function setEventAlarms(event) {
   }
 }
 
-// Create alarm with logging
 function createAlarm(alarmName, timestamp) {
   const now = Date.now();
   if (timestamp > now) {
     chrome.alarms.create(alarmName, { when: timestamp });
-    log('Alarm created', {
+    log("Alarm created", {
       name: alarmName,
       time: new Date(timestamp).toLocaleString(),
-      timeUntilAlarm: Math.round((timestamp - now) / 1000 / 60) + ' minutes'
+      timeUntilAlarm: Math.round((timestamp - now) / 1000 / 60) + " minutes",
     });
   }
 }
 
-// Load and display events
-function loadEvents() {
-  chrome.storage.local.get(['events'], function(result) {
+function clearEventAlarms(eventId) {
+  ["0", "5", "10", "30"].forEach((minutes) => {
+    chrome.alarms.clear(`${eventId}_${minutes}`);
+  });
+}
+
+function toggleComplete(eventId) {
+  chrome.storage.local.get(["events"], function (result) {
     const events = result.events || [];
-    const eventsList = document.getElementById('eventsList');
-    eventsList.innerHTML = '';
+    const eventIndex = events.findIndex((e) => e.id === eventId);
+
+    if (eventIndex !== -1) {
+      events[eventIndex].completed = !events[eventIndex].completed;
+      chrome.storage.local.set({ events }, loadEvents);
+
+      if (events[eventIndex].completed) {
+        clearEventAlarms(eventId);
+      } else {
+        setEventAlarms(events[eventIndex]);
+      }
+    }
+  });
+}
+
+function deleteEvent(eventId) {
+  chrome.storage.local.get(["events"], function (result) {
+    const events = result.events || [];
+    const newEvents = events.filter((e) => e.id !== eventId);
+    chrome.storage.local.set({ events: newEvents }, loadEvents);
+    clearEventAlarms(eventId);
+  });
+}
+
+function loadEvents() {
+  chrome.storage.local.get(["events"], function (result) {
+    const events = result.events || [];
+    const eventsList = document.getElementById("eventsList");
+    eventsList.innerHTML = "";
 
     events
-      .sort((a, b) => a.eventTime - b.eventTime)
-      .forEach(event => {
+      .sort((a, b) => b.eventTime - a.eventTime)
+      .forEach((event) => {
         eventsList.appendChild(createEventCard(event));
       });
   });
 }
 
-// Create event card
 function createEventCard(event) {
-  const card = document.createElement('div');
-  card.className = 'event-card';
-  
+  const card = document.createElement("div");
+  card.className = `event-card ${event.completed ? "completed" : ""}`;
+
   const timeUntil = getTimeUntil(event.eventTime);
-  
+
   card.innerHTML = `
     <div style="display: flex; justify-content: space-between; align-items: start;">
-      <h3 style="font-size: 1rem; margin: 0;">${event.title}</h3>
-      <span style="font-size: 0.75rem; color: var(--text-light);">
-        ${new Date(event.eventTime).toLocaleString()}
-      </span>
+      <div>
+        <h3 style="font-size: 1rem; margin: 0; ${
+          event.completed
+            ? "text-decoration: line-through; color: var(--text-light);"
+            : ""
+        }">${event.title}</h3>
+        <span style="font-size: 0.75rem; color: var(--text-light);">
+          ${new Date(event.eventTime).toLocaleString()}
+        </span>
+      </div>
+      <div class="event-actions">
+        <button class="icon-button complete-btn" data-id="${event.id}" title="${
+    event.completed ? "Mark Incomplete" : "Mark Complete"
+  }">
+          ${event.completed ? "Mark Undone" : "Mark Done"}
+        </button>
+        <button class="icon-button delete-btn" data-id="${
+          event.id
+        }" title="Delete">
+          Delete
+        </button>
+      </div>
     </div>
-    <p style="margin: 8px 0; color: var(--text-light);">${event.description}</p>
+    <p style="margin: 8px 0; color: var(--text-light);">${
+      event.description || ""
+    }</p>
     <span style="font-size: 0.75rem; color: var(--primary);">${timeUntil}</span>
   `;
-  
+
+  const completeBtn = card.querySelector(".complete-btn");
+  const deleteBtn = card.querySelector(".delete-btn");
+
+  completeBtn.addEventListener("click", () => toggleComplete(event.id));
+  deleteBtn.addEventListener("click", () => deleteEvent(event.id));
+
   return card;
 }
-
-// Get time until event
 function getTimeUntil(timestamp) {
   const now = Date.now();
   const diff = timestamp - now;
-  
-  if (diff < 0) return 'Past event';
-  
+
+  if (diff < 0) return "Past event";
+
   const minutes = Math.floor(diff / 1000 / 60);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
-  
-  if (days > 0) return `${days} days until event`;
-  if (hours > 0) return `${hours} hours until event`;
-  return `${minutes} minutes until event`;
+
+  if (days > 0) return `${days} ${days === 1 ? "day" : "days"} until event`;
+  if (hours > 0)
+    return `${hours} ${hours === 1 ? "hour" : "hours"} until event`;
+  if (minutes > 0)
+    return `${minutes} ${minutes === 1 ? "minute" : "minutes"} until event`;
+  return "Starting now";
 }
 
+// Chrome Extension Storage Event Listener
+chrome.storage.onChanged.addListener(function (changes, namespace) {
+  if (namespace === "local" && changes.events) {
+    loadEvents();
+  }
+});

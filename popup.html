@@ -12,6 +12,7 @@
         --text-light: #64748b;
         --border: #e2e8f0;
         --warning: #f59e0b;
+        --success: #22c55e;
       }
 
       * {
@@ -22,10 +23,9 @@
 
       body {
         width: 380px;
-        min-height: 500px;
+        min-height: 400px;
         padding: 16px;
-        font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI",
-          sans-serif;
+        font-family: Arial, Helvetica, sans-serif;
         background: var(--background);
         color: var(--text);
       }
@@ -62,7 +62,7 @@
         border-radius: 12px;
         padding: 20px;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        margin-top: 44px;
+        margin-top: 10px;
       }
 
       .form-group {
@@ -144,11 +144,49 @@
         gap: 12px;
       }
 
+      #eventForm{
+        margin-top: 15px;
+      }
+
       .event-card {
         background: var(--card);
         border-radius: 8px;
         padding: 16px;
         border: 1px solid var(--border);
+        transition: all 0.2s;
+      }
+
+      .event-card.completed {
+        background: var(--background);
+        border: 1px dashed var(--border);
+      }
+
+      .event-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .icon-button {
+        background: none;
+        border: none;
+        padding: 4px;
+        cursor: pointer;
+        margin: 0;
+        width: auto;
+        transition: all 0.2s;
+      }
+
+      .icon-button:hover {
+        background: var(--background);
+        border-radius: 4px;
+      }
+
+      .complete-btn {
+        color: var(--success);
+      }
+
+      .delete-btn {
+        color: #ef4444;
       }
     </style>
   </head>
@@ -163,12 +201,7 @@
       <form id="eventForm">
         <div class="form-group">
           <label for="title">Title*</label>
-          <input
-            type="text"
-            id="title"
-            placeholder="Enter event title"
-            required
-          />
+          <input type="text" id="title" placeholder="Enter event title" required />
         </div>
 
         <div class="form-group">
@@ -186,15 +219,15 @@
           <div class="checkbox-group">
             <label class="checkbox-wrapper">
               <input type="checkbox" id="notify30" checked />
-              <span>30 minutes before</span>
+              <span>30 min. before</span>
             </label>
             <label class="checkbox-wrapper">
               <input type="checkbox" id="notify10" checked />
-              <span>10 minutes before</span>
+              <span>10 min. before</span>
             </label>
             <label class="checkbox-wrapper">
               <input type="checkbox" id="notify5" checked />
-              <span>5 minutes before</span>
+              <span>5 min. before</span>
             </label>
             <label class="checkbox-wrapper">
               <input type="checkbox" id="notifyAt" checked disabled />
