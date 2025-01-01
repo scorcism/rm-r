@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>rm-r</title>
+    <title>Task Reminder</title>
     <style>
       :root {
         --primary: #2563eb;
@@ -22,12 +22,13 @@
       }
 
       body {
-        width: 380px;
-        min-height: 400px;
-        padding: 16px;
-        font-family: Arial, Helvetica, sans-serif;
+        width: 360px;
+        height: 520px;
+        padding: 12px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         background: var(--background);
         color: var(--text);
+        overflow-y: auto;
       }
 
       .permission-banner {
@@ -37,54 +38,143 @@
         right: 0;
         background: var(--warning);
         color: white;
-        padding: 12px 16px;
+        padding: 8px 12px;
         display: flex;
         justify-content: space-between;
         align-items: center;
         z-index: 1000;
+        font-size: 12px;
       }
 
       .permission-banner button {
         background: white;
         color: var(--warning);
         border: none;
-        padding: 6px 12px;
+        padding: 4px 8px;
         border-radius: 4px;
         cursor: pointer;
         font-size: 12px;
-        font-weight: 500;
-        margin: 0;
-        width: auto;
       }
 
-      .container {
-        background: var(--card);
-        border-radius: 12px;
-        padding: 20px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        margin-top: 10px;
+      .tab-container {
+        margin-bottom: 16px;
+      }
+
+      .tabs {
+        display: flex;
+        gap: 2px;
+        background: var(--border);
+        padding: 2px;
+        border-radius: 8px;
+      }
+
+      .tab {
+        flex: 1;
+        padding: 8px;
+        text-align: center;
+        background: transparent;
+        border: none;
+        border-radius: 6px;
+        color: var(--text-light);
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.2s;
+      }
+
+      .tab.active {
+        background: white;
+        color: var(--primary);
+        font-weight: 500;
+      }
+
+      .tab-content {
+        display: none;
+      }
+
+      .tab-content.active {
+        display: block;
+      }
+
+      .add-button {
+        position: fixed;
+        bottom: 16px;
+        right: 16px;
+        width: 48px;
+        height: 48px;
+        border-radius: 24px;
+        background: var(--primary);
+        color: white;
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        z-index: 100;
+        transition: transform 0.2s;
+      }
+
+      .add-button:hover {
+        transform: scale(1.05);
+      }
+
+      .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--background);
+        z-index: 1000;
+        padding: 16px;
+      }
+
+      .modal.active {
+        display: block;
+      }
+
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+
+      .modal-header h2 {
+        font-size: 16px;
+        color: var(--text);
+      }
+
+      .close-modal {
+        background: none;
+        border: none;
+        font-size: 20px;
+        cursor: pointer;
+        padding: 4px;
+        color: var(--text-light);
       }
 
       .form-group {
-        margin-bottom: 16px;
+        margin-bottom: 12px;
       }
 
       label {
         display: block;
-        font-size: 0.875rem;
+        font-size: 13px;
         color: var(--text-light);
-        margin-bottom: 8px;
+        margin-bottom: 4px;
       }
 
       input[type="text"],
       input[type="datetime-local"],
       textarea {
         width: 100%;
-        padding: 10px 12px;
+        padding: 8px 12px;
         border: 1px solid var(--border);
-        border-radius: 8px;
-        font-size: 14px;
-        transition: all 0.2s;
+        border-radius: 6px;
+        font-size: 13px;
       }
 
       input:focus,
@@ -94,153 +184,248 @@
         box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
       }
 
-      .notification-card {
-        background: var(--background);
+      .event-card {
+        background: white;
         border-radius: 8px;
-        padding: 16px;
-        margin-top: 16px;
+        padding: 12px;
+        margin-bottom: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
       }
 
-      .notification-card h3 {
+      .event-card.completed {
+        opacity: 0.7;
+      }
+
+      .event-title {
         font-size: 14px;
+        font-weight: 500;
+        margin-bottom: 4px;
+      }
+
+      .event-time {
+        font-size: 12px;
         color: var(--text-light);
-        margin-bottom: 12px;
+      }
+
+      .event-description {
+        font-size: 12px;
+        color: var(--text-light);
+        margin: 4px 0;
+      }
+
+      .event-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .btn {
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        cursor: pointer;
+        border: none;
+        transition: all 0.2s;
+      }
+
+      .btn:hover {
+        opacity: 0.9;
+      }
+
+      .btn-primary {
+        background: var(--primary);
+        color: white;
+        flex: 1;
+      }
+
+      .btn-secondary {
+        background: var(--background);
+        color: var(--text);
+      }
+
+      .btn-danger {
+        background: #fee2e2;
+        color: #dc2626;
+      }
+
+      .event-list {
+        margin-bottom: 64px;
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 32px 16px;
+        color: var(--text-light);
+        font-size: 13px;
       }
 
       .checkbox-group {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
-        gap: 12px;
+        gap: 8px;
       }
 
       .checkbox-wrapper {
         display: flex;
         align-items: center;
         gap: 8px;
+        font-size: 13px;
+        color: var(--text);
       }
 
-      button {
-        width: 100%;
-        padding: 12px;
-        background: var(--primary);
-        color: white;
-        border: none;
-        border-radius: 8px;
-        font-size: 14px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s;
-        margin-top: 24px;
+      /* Custom checkbox */
+      input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--primary);
       }
 
-      button:hover {
-        background: var(--primary-dark);
-      }
+      .edit-mode {
+      background: rgba(0, 0, 0, 0.05);
+      padding: 8px;
+      border-radius: 6px;
+      margin: 8px 0;
+    }
+    
+    .edit-form {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
 
-      #eventsList {
-        margin-top: 24px;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
+    .edit-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
 
-      #eventForm{
-        margin-top: 15px;
-      }
+    .status-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 12px;
+      font-size: 12px;
+      margin-left: 8px;
+    }
 
-      .event-card {
-        background: var(--card);
-        border-radius: 8px;
-        padding: 16px;
-        border: 1px solid var(--border);
-        transition: all 0.2s;
-      }
+    .status-pending {
+      background: #fee2e2;
+      color: #dc2626;
+    }
 
-      .event-card.completed {
-        background: var(--background);
-        border: 1px dashed var(--border);
-      }
-
-      .event-actions {
-        display: flex;
-        gap: 8px;
-      }
-
-      .icon-button {
-        background: none;
-        border: none;
-        padding: 4px;
-        cursor: pointer;
-        margin: 0;
-        width: auto;
-        transition: all 0.2s;
-      }
-
-      .icon-button:hover {
-        background: var(--background);
-        border-radius: 4px;
-      }
-
-      .complete-btn {
-        color: var(--success);
-      }
-
-      .delete-btn {
-        color: #ef4444;
-      }
+    .status-completed {
+      background: #dcfce7;
+      color: #16a34a;
+    }
     </style>
   </head>
   <body>
     <div id="permissionBanner" class="permission-banner" style="display: none">
-      <span>🔔 Notifications are required for reminders</span>
-      <button id="enableNotifications">Enable Notifications</button>
+      <span>🔔 Enable notifications for reminders</span>
+      <button id="enableNotifications">Enable</button>
     </div>
 
-    <div class="container">
-      <h1>Create New Event</h1>
+    <div class="tab-container">
+      <div class="tabs">
+        <button class="tab active" data-tab="pending">Pending (0)</button>
+        <button class="tab" data-tab="scheduled">Today (0)</button>
+        <button class="tab" data-tab="completed">Done (0)</button>
+      </div>
+    </div>
+
+    <div class="tab-content active" id="pending">
+      <div class="event-list"></div>
+    </div>
+
+    <div class="tab-content" id="scheduled">
+      <div class="event-list"></div>
+    </div>
+
+    <div class="tab-content" id="completed">
+      <div class="event-list"></div>
+    </div>
+
+    <button class="add-button" id="addEventBtn">+</button>
+
+    <div class="modal" id="eventModal">
+      <div class="modal-header">
+        <h2>New Task</h2>
+        <button class="close-modal">&times;</button>
+      </div>
+      
       <form id="eventForm">
         <div class="form-group">
           <label for="title">Title*</label>
-          <input type="text" id="title" placeholder="Enter event title" required />
+          <input type="text" id="title" placeholder="What needs to be done?" required>
         </div>
 
         <div class="form-group">
           <label for="description">Description</label>
-          <textarea id="description" placeholder="Add event details"></textarea>
+          <textarea id="description" rows="3" placeholder="Add details..."></textarea>
         </div>
 
         <div class="form-group">
-          <label for="eventTime">Date & Time*</label>
-          <input type="datetime-local" id="eventTime" required />
+          <label for="eventTime">When*</label>
+          <input type="datetime-local" id="eventTime" required>
         </div>
 
-        <div class="notification-card">
-          <h3>Notification Times</h3>
+        <div class="form-group">
+          <label>Notifications</label>
           <div class="checkbox-group">
             <label class="checkbox-wrapper">
-              <input type="checkbox" id="notify30" checked />
-              <span>30 min. before</span>
+              <input type="checkbox" id="notify30" checked>
+              <span>30 min before</span>
             </label>
             <label class="checkbox-wrapper">
-              <input type="checkbox" id="notify10" checked />
-              <span>10 min. before</span>
+              <input type="checkbox" id="notify10" checked>
+              <span>10 min before</span>
             </label>
             <label class="checkbox-wrapper">
-              <input type="checkbox" id="notify5" checked />
-              <span>5 min. before</span>
+              <input type="checkbox" id="notify5" checked>
+              <span>5 min before</span>
             </label>
             <label class="checkbox-wrapper">
-              <input type="checkbox" id="notifyAt" checked disabled />
+              <input type="checkbox" id="notifyAt" checked disabled>
               <span>At event time</span>
             </label>
           </div>
         </div>
 
-        <button type="submit" id="saveEvent">Add Event</button>
+        <div class="modal-buttons" style="display: flex; gap: 8px; margin-top: 16px;">
+          <button type="submit" class="btn btn-primary">Save Task</button>
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        </div>
       </form>
     </div>
 
-    <div id="eventsList"></div>
+    <div class="modal" id="editModal">
+      <div class="modal-header">
+        <h2>Edit Task</h2>
+        <button class="close-modal" onclick="closeEditModal()">&times;</button>
+      </div>
+      
+      <form id="editForm">
+        <input type="hidden" id="editId">
+        <div class="form-group">
+          <label for="editTitle">Title*</label>
+          <input type="text" id="editTitle" required>
+        </div>
+
+        <div class="form-group">
+          <label for="editDescription">Description</label>
+          <textarea id="editDescription" rows="3"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="editEventTime">When*</label>
+          <input type="datetime-local" id="editEventTime" required>
+        </div>
+
+        <div class="modal-buttons" style="display: flex; gap: 8px; margin-top: 16px;">
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+          <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
 
     <script src="popup.js"></script>
   </body>

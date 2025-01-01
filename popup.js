@@ -2,24 +2,68 @@ let DEBUG = true;
 let hasNotificationPermission = false;
 
 function log(message, data = null) {
-  if (DEBUG) {
+  if (DEBUG)
     console.log(`[${new Date().toISOString()}] ${message}`, data || "");
-  }
 }
 
 document.addEventListener("DOMContentLoaded", async function () {
   log("Popup opened");
   await checkNotificationPermission();
+  setupTabs();
+  setupModal();
+  setupEditModal();
+  setupEventListeners();
+  loadEvents();
+});
 
+function setupEventListeners() {
   document
     .getElementById("enableNotifications")
     .addEventListener("click", requestNotificationPermission);
   document
     .getElementById("eventForm")
     .addEventListener("submit", handleFormSubmit);
+  document
+    .getElementById("editForm")
+    .addEventListener("submit", handleEditFormSubmit);
+}
 
-  loadEvents();
-});
+function setupTabs() {
+  document.querySelectorAll(".tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      document
+        .querySelectorAll(".tab")
+        .forEach((t) => t.classList.remove("active"));
+      tab.classList.add("active");
+      document
+        .querySelectorAll(".tab-content")
+        .forEach((content) => content.classList.remove("active"));
+      document.getElementById(tab.dataset.tab).classList.add("active");
+    });
+  });
+}
+
+function setupModal() {
+  const addBtn = document.getElementById("addEventBtn");
+  const modal = document.getElementById("eventModal");
+  const closeBtn = modal.querySelector(".close-modal");
+
+  addBtn.addEventListener("click", () => {
+    if (hasNotificationPermission) {
+      modal.classList.add("active");
+    } else {
+      alert("Please enable notifications first");
+    }
+  });
+
+  closeBtn.addEventListener("click", closeModal);
+}
+
+function setupEditModal() {
+  const editModal = document.getElementById("editModal");
+  const closeBtn = editModal.querySelector(".close-modal");
+  closeBtn.addEventListener("click", closeEditModal);
+}
 
 async function checkNotificationPermission() {
   try {
@@ -35,17 +79,9 @@ async function checkNotificationPermission() {
 
 function updateUI() {
   const banner = document.getElementById("permissionBanner");
-  const form = document.getElementById("eventForm");
-
-  if (!hasNotificationPermission) {
-    banner.style.display = "flex";
-    form.style.opacity = "0.5";
-    form.style.pointerEvents = "none";
-  } else {
-    banner.style.display = "none";
-    form.style.opacity = "1";
-    form.style.pointerEvents = "auto";
-  }
+  const addBtn = document.getElementById("addEventBtn");
+  banner.style.display = hasNotificationPermission ? "none" : "flex";
+  addBtn.style.opacity = hasNotificationPermission ? "1" : "0.5";
 }
 
 async function requestNotificationPermission() {
@@ -56,52 +92,34 @@ async function requestNotificationPermission() {
       title: "Notification Test",
       message: "Notifications are now enabled!",
     });
-
     const granted = await checkNotificationPermission();
-    if (granted) {
-      log("Permission granted");
-    } else {
-      log("Permission denied");
-    }
+    log(granted ? "Permission granted" : "Permission denied");
   } catch (error) {
     log("Error requesting permission", error);
   }
 }
 
-async function handleFormSubmit(e) {
+function handleFormSubmit(e) {
   e.preventDefault();
-
   if (!hasNotificationPermission) {
     alert("Please enable notifications first");
     return;
   }
-
   saveEvent();
 }
 
 function saveEvent() {
-  const title = document.getElementById("title").value.trim();
-  const description = document.getElementById("description").value.trim();
-  const eventTime = document.getElementById("eventTime").value;
-  const notify30 = document.getElementById("notify30").checked;
-  const notify10 = document.getElementById("notify10").checked;
-  const notify5 = document.getElementById("notify5").checked;
-
-  if (!title || !eventTime) {
-    alert("Please fill in all required fields");
-    return;
-  }
-
+  const form = document.getElementById("eventForm");
   const event = {
     id: Date.now(),
-    title,
-    description,
-    eventTime: new Date(eventTime).getTime(),
+    title: form.title.value.trim(),
+    description: form.description.value.trim(),
+    eventTime: new Date(form.eventTime.value).getTime(),
     completed: false,
     notifications: {
-      thirty: notify30,
-      ten: notify10,
-      five: notify5,
+      thirty: form.notify30.checked,
+      ten: form.notify10.checked,
+      five: form.notify5.checked,
       atTime: true,
     },
   };
@@ -109,43 +127,210 @@ function saveEvent() {
   chrome.storage.local.get(["events"], function (result) {
     const events = result.events || [];
     events.push(event);
-
-    chrome.storage.local.set({ events }, function () {
+    chrome.storage.local.set({ events }, () => {
       setEventAlarms(event);
       loadEvents();
-      document.getElementById("eventForm").reset();
+      closeModal();
+      form.reset();
+    });
+  });
+}
+
+function loadEvents() {
+  chrome.storage.local.get(["events"], function (result) {
+    const events = result.events || [];
+    const now = Date.now();
+
+    const pending = events.filter((e) => !e.completed && e.eventTime > now);
+    const scheduled = events.filter((e) => !e.completed && e.eventTime <= now);
+    const completed = events.filter((e) => e.completed);
+
+    pending.sort((a, b) => a.eventTime - b.eventTime);
+    scheduled.sort((a, b) => b.eventTime - a.eventTime);
+    completed.sort((a, b) => b.eventTime - a.eventTime);
+
+    updateTabCounts(pending.length, scheduled.length, completed.length);
+    renderEvents("pending", pending);
+    renderEvents("scheduled", scheduled);
+    renderEvents("completed", completed);
+  });
+}
+
+function updateTabCounts(pending, scheduled, completed) {
+  document.querySelector(
+    '[data-tab="pending"]'
+  ).textContent = `Pending (${pending})`;
+  document.querySelector(
+    '[data-tab="scheduled"]'
+  ).textContent = `Today (${scheduled})`;
+  document.querySelector(
+    '[data-tab="completed"]'
+  ).textContent = `Done (${completed})`;
+}
+
+function renderEvents(type, events) {
+  const container = document.querySelector(`#${type} .event-list`);
+  container.innerHTML = events.length
+    ? ""
+    : `<div class="empty-state">No ${type} tasks</div>`;
+  events.forEach((event) => container.appendChild(createEventElement(event)));
+}
+
+function createEventElement(event) {
+  const div = document.createElement("div");
+  div.className = `event-card ${event.completed ? "completed" : ""}`;
+  div.dataset.eventId = event.id;
+
+  const timeDisplay = getTimeDisplay(event.eventTime);
+  div.innerHTML = `
+    <div class="event-title">${event.title}</div>
+    <div class="event-time">${timeDisplay}</div>
+    ${
+      event.description
+        ? `<div class="event-description">${event.description}</div>`
+        : ""
+    }
+    <div class="event-actions">
+      ${getActionButtons(event)}
+    </div>
+  `;
+
+  // Add event listeners after creating the element
+  const actions = div.querySelector(".event-actions");
+  if (event.completed) {
+    const undoBtn = actions.querySelector(".btn-secondary");
+    const deleteBtn = actions.querySelector(".btn-danger");
+
+    undoBtn.addEventListener("click", () => toggleComplete(event.id));
+    deleteBtn.addEventListener("click", () => deleteEvent(event.id));
+  } else {
+    const completeBtn = actions.querySelector(".btn-primary");
+    const editBtn = actions.querySelector(".btn-secondary");
+    const deleteBtn = actions.querySelector(".btn-danger");
+
+    completeBtn.addEventListener("click", () => toggleComplete(event.id));
+    editBtn.addEventListener("click", () => editEvent(event.id));
+    deleteBtn.addEventListener("click", () => deleteEvent(event.id));
+  }
+
+  return div;
+}
+
+function getActionButtons(event) {
+  return event.completed
+    ? `
+    <button class="btn btn-secondary">Undo</button>
+    <button class="btn btn-danger">Delete</button>
+  `
+    : `
+    <button class="btn btn-primary">Complete</button>
+    <button class="btn btn-secondary">Edit</button>
+    <button class="btn btn-danger">Delete</button>
+  `;
+}
+
+function getTimeDisplay(timestamp) {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  return isToday
+    ? `Today at ${date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`
+    : date.toLocaleString([], {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+}
+
+function editEvent(eventId) {
+  chrome.storage.local.get(["events"], function (result) {
+    const event = result.events?.find((e) => e.id === eventId);
+    if (event) {
+      const form = document.getElementById("editForm");
+      form.editId.value = event.id;
+      form.editTitle.value = event.title;
+      form.editDescription.value = event.description || "";
+      form.editEventTime.value = new Date(event.eventTime)
+        .toISOString()
+        .slice(0, 16);
+      document.getElementById("editModal").classList.add("active");
+    }
+  });
+}
+
+function handleEditFormSubmit(e) {
+  e.preventDefault();
+  const form = e.target;
+  const eventId = parseInt(form.editId.value);
+  const updates = {
+    title: form.editTitle.value.trim(),
+    description: form.editDescription.value.trim(),
+    eventTime: new Date(form.editEventTime.value).getTime(),
+  };
+
+  chrome.storage.local.get(["events"], function (result) {
+    const events = result.events || [];
+    const eventIndex = events.findIndex((e) => e.id === eventId);
+    if (eventIndex !== -1) {
+      events[eventIndex] = { ...events[eventIndex], ...updates };
+      chrome.storage.local.set({ events }, () => {
+        clearEventAlarms(eventId);
+        setEventAlarms(events[eventIndex]);
+        loadEvents();
+        closeEditModal();
+      });
+    }
+  });
+}
+
+function toggleComplete(eventId) {
+  chrome.storage.local.get(["events"], function (result) {
+    const events = result.events || [];
+    const eventIndex = events.findIndex((e) => e.id === eventId);
+    if (eventIndex !== -1) {
+      events[eventIndex].completed = !events[eventIndex].completed;
+      chrome.storage.local.set({ events }, () => {
+        if (events[eventIndex].completed) {
+          clearEventAlarms(eventId);
+        } else {
+          setEventAlarms(events[eventIndex]);
+        }
+        loadEvents();
+      });
+    }
+  });
+}
+
+function deleteEvent(eventId) {
+  if (!confirm("Are you sure you want to delete this task?")) return;
+
+  chrome.storage.local.get(["events"], function (result) {
+    const events = (result.events || []).filter((e) => e.id !== eventId);
+    chrome.storage.local.set({ events }, () => {
+      clearEventAlarms(eventId);
+      loadEvents();
     });
   });
 }
 
 function setEventAlarms(event) {
-  if (event.completed) return;
-
-  const eventTime = event.eventTime;
-
-  createAlarm(`${event.id}_0`, eventTime);
-
-  if (event.notifications.thirty) {
-    createAlarm(`${event.id}_30`, eventTime - 30 * 60 * 1000);
-  }
-  if (event.notifications.ten) {
-    createAlarm(`${event.id}_10`, eventTime - 10 * 60 * 1000);
-  }
-  if (event.notifications.five) {
-    createAlarm(`${event.id}_5`, eventTime - 5 * 60 * 1000);
+  if (event.eventTime > Date.now()) {
+    createAlarm(`${event.id}_0`, event.eventTime);
+    if (event.notifications.thirty)
+      createAlarm(`${event.id}_30`, event.eventTime - 30 * 60 * 1000);
+    if (event.notifications.ten)
+      createAlarm(`${event.id}_10`, event.eventTime - 10 * 60 * 1000);
+    if (event.notifications.five)
+      createAlarm(`${event.id}_5`, event.eventTime - 5 * 60 * 1000);
   }
 }
 
-function createAlarm(alarmName, timestamp) {
-  const now = Date.now();
-  if (timestamp > now) {
-    chrome.alarms.create(alarmName, { when: timestamp });
-    log("Alarm created", {
-      name: alarmName,
-      time: new Date(timestamp).toLocaleString(),
-      timeUntilAlarm: Math.round((timestamp - now) / 1000 / 60) + " minutes",
-    });
-  }
+function createAlarm(name, time) {
+  chrome.alarms.create(name, { when: time });
 }
 
 function clearEventAlarms(eventId) {
@@ -154,111 +339,16 @@ function clearEventAlarms(eventId) {
   });
 }
 
-function toggleComplete(eventId) {
-  chrome.storage.local.get(["events"], function (result) {
-    const events = result.events || [];
-    const eventIndex = events.findIndex((e) => e.id === eventId);
-
-    if (eventIndex !== -1) {
-      events[eventIndex].completed = !events[eventIndex].completed;
-      chrome.storage.local.set({ events }, loadEvents);
-
-      if (events[eventIndex].completed) {
-        clearEventAlarms(eventId);
-      } else {
-        setEventAlarms(events[eventIndex]);
-      }
-    }
-  });
+function closeModal() {
+  document.getElementById("eventModal").classList.remove("active");
+  document.getElementById("eventForm").reset();
 }
 
-function deleteEvent(eventId) {
-  chrome.storage.local.get(["events"], function (result) {
-    const events = result.events || [];
-    const newEvents = events.filter((e) => e.id !== eventId);
-    chrome.storage.local.set({ events: newEvents }, loadEvents);
-    clearEventAlarms(eventId);
-  });
+function closeEditModal() {
+  document.getElementById("editModal").classList.remove("active");
+  document.getElementById("editForm").reset();
 }
 
-function loadEvents() {
-  chrome.storage.local.get(["events"], function (result) {
-    const events = result.events || [];
-    const eventsList = document.getElementById("eventsList");
-    eventsList.innerHTML = "";
-
-    events
-      .sort((a, b) => b.eventTime - a.eventTime)
-      .forEach((event) => {
-        eventsList.appendChild(createEventCard(event));
-      });
-  });
-}
-
-function createEventCard(event) {
-  const card = document.createElement("div");
-  card.className = `event-card ${event.completed ? "completed" : ""}`;
-
-  const timeUntil = getTimeUntil(event.eventTime);
-
-  card.innerHTML = `
-    <div style="display: flex; justify-content: space-between; align-items: start;">
-      <div>
-        <h3 style="font-size: 1rem; margin: 0; ${
-          event.completed
-            ? "text-decoration: line-through; color: var(--text-light);"
-            : ""
-        }">${event.title}</h3>
-        <span style="font-size: 0.75rem; color: var(--text-light);">
-          ${new Date(event.eventTime).toLocaleString()}
-        </span>
-      </div>
-      <div class="event-actions">
-        <button class="icon-button complete-btn" data-id="${event.id}" title="${
-    event.completed ? "Mark Incomplete" : "Mark Complete"
-  }">
-          ${event.completed ? "Mark Undone" : "Mark Done"}
-        </button>
-        <button class="icon-button delete-btn" data-id="${
-          event.id
-        }" title="Delete">
-          Delete
-        </button>
-      </div>
-    </div>
-    <p style="margin: 8px 0; color: var(--text-light);">${
-      event.description || ""
-    }</p>
-    <span style="font-size: 0.75rem; color: var(--primary);">${timeUntil}</span>
-  `;
-
-  const completeBtn = card.querySelector(".complete-btn");
-  const deleteBtn = card.querySelector(".delete-btn");
-
-  completeBtn.addEventListener("click", () => toggleComplete(event.id));
-  deleteBtn.addEventListener("click", () => deleteEvent(event.id));
-
-  return card;
-}
-function getTimeUntil(timestamp) {
-  const now = Date.now();
-  const diff = timestamp - now;
-
-  if (diff < 0) return "Past event";
-
-  const minutes = Math.floor(diff / 1000 / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-
-  if (days > 0) return `${days} ${days === 1 ? "day" : "days"} until event`;
-  if (hours > 0)
-    return `${hours} ${hours === 1 ? "hour" : "hours"} until event`;
-  if (minutes > 0)
-    return `${minutes} ${minutes === 1 ? "minute" : "minutes"} until event`;
-  return "Starting now";
-}
-
-// Chrome Extension Storage Event Listener
 chrome.storage.onChanged.addListener(function (changes, namespace) {
   if (namespace === "local" && changes.events) {
     loadEvents();
