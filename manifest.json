@@ -3,11 +3,8 @@
   "name": "rm-r",
   "version": "1.0",
   "description": "Set notifications",
-  "permissions": [
-    "storage",
-    "notifications",
-    "alarms"
-  ],
+  "permissions": ["storage", "notifications", "alarms"],
+  "host_permissions": ["https://scor32k.com/*"],
   "background": {
     "service_worker": "background.js"
   },

@@ -26,6 +26,14 @@ function setupEventListeners() {
   document
     .getElementById("editForm")
     .addEventListener("submit", handleEditFormSubmit);
+  document.getElementById("closeModal").addEventListener("click", closeModal);
+  document
+    .querySelector(".close-edit-modal")
+    .addEventListener("click", closeEditModal);
+  document.querySelector(".footer a").addEventListener("click", (e) => {
+    e.preventDefault();
+    chrome.tabs.create({ url: e.target.href });
+  });
 }
 
 function setupTabs() {
@@ -110,9 +118,10 @@ function handleFormSubmit(e) {
 
 function saveEvent() {
   const form = document.getElementById("eventForm");
+  console.log({ new: new Date(form.eventTime.value).getTime() });
   const event = {
     id: Date.now(),
-    title: form.title.value.trim(),
+    title: form.title.valueOf.trim(),
     description: form.description.value.trim(),
     eventTime: new Date(form.eventTime.value).getTime(),
     completed: false,
@@ -135,23 +144,45 @@ function saveEvent() {
     });
   });
 }
-
 function loadEvents() {
   chrome.storage.local.get(["events"], function (result) {
     const events = result.events || [];
-    const now = Date.now();
+    const now = new Date();
 
-    const pending = events.filter((e) => !e.completed && e.eventTime > now);
-    const scheduled = events.filter((e) => !e.completed && e.eventTime <= now);
+    // Get start and end of today
+    const startOfDay = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    ).getTime();
+
+    const endOfDay = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      23,
+      59,
+      59,
+      999
+    ).getTime();
+
+    // Filter events
     const completed = events.filter((e) => e.completed);
 
+    const todayTasks = events.filter(
+      (e) =>
+        !e.completed && e.eventTime >= startOfDay && e.eventTime <= endOfDay
+    );
+
+    const pending = events.filter((e) => !e.completed);
+
     pending.sort((a, b) => a.eventTime - b.eventTime);
-    scheduled.sort((a, b) => b.eventTime - a.eventTime);
+    todayTasks.sort((a, b) => a.eventTime - b.eventTime);
     completed.sort((a, b) => b.eventTime - a.eventTime);
 
-    updateTabCounts(pending.length, scheduled.length, completed.length);
+    updateTabCounts(pending.length, todayTasks.length, completed.length);
     renderEvents("pending", pending);
-    renderEvents("scheduled", scheduled);
+    renderEvents("scheduled", todayTasks);
     renderEvents("completed", completed);
   });
 }
@@ -254,9 +285,16 @@ function editEvent(eventId) {
       form.editId.value = event.id;
       form.editTitle.value = event.title;
       form.editDescription.value = event.description || "";
-      form.editEventTime.value = new Date(event.eventTime)
-        .toISOString()
-        .slice(0, 16);
+
+      // Convert timestamp to local datetime-local input value
+      const date = new Date(event.eventTime);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const hours = String(date.getHours()).padStart(2, "0");
+      const minutes = String(date.getMinutes()).padStart(2, "0");
+
+      form.editEventTime.value = `${year}-${month}-${day}T${hours}:${minutes}`;
       document.getElementById("editModal").classList.add("active");
     }
   });
@@ -266,10 +304,13 @@ function handleEditFormSubmit(e) {
   e.preventDefault();
   const form = e.target;
   const eventId = parseInt(form.editId.value);
+
+  const eventTime = new Date(form.editEventTime.value);
+
   const updates = {
     title: form.editTitle.value.trim(),
     description: form.editDescription.value.trim(),
-    eventTime: new Date(form.editEventTime.value).getTime(),
+    eventTime: eventTime.getTime(),
   };
 
   chrome.storage.local.get(["events"], function (result) {
@@ -306,8 +347,6 @@ function toggleComplete(eventId) {
 }
 
 function deleteEvent(eventId) {
-  if (!confirm("Are you sure you want to delete this task?")) return;
-
   chrome.storage.local.get(["events"], function (result) {
     const events = (result.events || []).filter((e) => e.id !== eventId);
     chrome.storage.local.set({ events }, () => {
