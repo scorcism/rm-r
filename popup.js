@@ -121,7 +121,7 @@ function saveEvent() {
   console.log({ new: new Date(form.eventTime.value).getTime() });
   const event = {
     id: Date.now(),
-    title: form.title.valueOf.trim(),
+    title: form.title.value.trim(),
     description: form.description.value.trim(),
     eventTime: new Date(form.eventTime.value).getTime(),
     completed: false,
